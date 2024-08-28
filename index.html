@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Divisor de Video</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-size: 1.2em;
+            color: #555;
+        }
+        input[type="file"],
+        input[type="number"],
+        button {
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 1em;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+        }
+        .link {
+            display: block;
+            margin-top: 10px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .link:hover {
+            text-decoration: underline;
+        }
+        .error {
+            color: #d9534f;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Divisor de Video</h1>
+        
+        <label for="video-file">Cargar Video: </label>
+        <input type="file" id="video-file" accept="video/*">
+        
+        <label for="segment-duration">Duración de cada segmento (en segundos): </label>
+        <input type="number" id="segment-duration" placeholder="Introduce duración de cada segmento en segundos">
+        
+        <button onclick="divideVideo()">Dividir Video</button>
+        
+        <h2>Clips Generados:</h2>
+        <div id="result"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@latest/dist/ffmpeg.min.js"></script>
+    <script>
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
+
+        async function divideVideo() {
+            const videoFile = document.getElementById('video-file').files[0];
+            const segmentDuration = parseInt(document.getElementById('segment-duration').value);
+            const resultDiv = document.getElementById('result');
+
+            if (!videoFile || isNaN(segmentDuration) || segmentDuration <= 0) {
+                resultDiv.innerHTML = '<p class="error">Por favor, carga un video e introduce un valor válido para la duración del segmento.</p>';
+                return;
+            }
+
+            if (!ffmpeg.isLoaded()) {
+                await ffmpeg.load();
+            }
+
+            resultDiv.innerHTML = '<p>Procesando video...</p>';
+
+            const videoName = 'input.mp4';
+            await ffmpeg.FS('writeFile', videoName, await fetchFile(videoFile));
+
+            const videoDuration = await getVideoDuration(videoFile);
+            let startTime = 0;
+            let segmentCount = 0;
+
+            // Limpiar resultados anteriores
+            resultDiv.innerHTML = '';
+
+            while (startTime < videoDuration) {
+                let endTime = Math.min(startTime + segmentDuration, videoDuration);
+                const segmentName = `segment_${segmentCount}.mp4`;
+
+                await ffmpeg.run(
+                    '-i', videoName,
+        
